@@ -1,0 +1,125 @@
+---
+title: "Prediction Assignment Write up for Practical Machine
+Learning"
+author: "Steven's write up for the Johns Hopkins Coursera Data Science specialization"
+date: "January 23, 2016"
+output: html_document
+
+theme: united
+---
+
+
+
+# Summary
+The goal of this project is to use machine learning to predict the qualitative activity recognition of weight lifting exercises (the classes) from research activity recognition data hosted at <http://groupware.les.inf.puc-rio.br/har>. Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. The data was collected from six participants, where class A represents the correct execution of the exercise, and the remaining five classes (B-E) are considered to have mistakes in the execution of the exercise.  
+
+The analysis uses two different learners, one fast ( **Random Forrest**), and one slow (**Extream Graident Boosting** ) with the intent to combine predictors if they both do not perform optimally.
+
+# Getting and Cleaning the Data
+The training data for this project are available here: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+It is important to examine the data fully for missing values. It became apparent that there was a second  code used for missing values (*#DIV/0!*).  Now, that we know all of the codes used for missing values, the data is read into a data frame:  
+```{r cache=TRUE}
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","training.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","testing.csv")
+training <- read.csv("training.csv", na.strings = c("NA", "#DIV/0!"));testing <- read.csv("testing.csv", na.strings = c("NA", "#DIV/0!"))
+```
+
+Using the paper by Velloso, E., et. al. as a reference, there are only a handful of variables that are useful for the prediction. The  variables of interest have **belt**, **arm**, **dumbbell**, and **forearm** in their names. Therefore, reducing the variables for us. 
+
+```{r}
+dim(training)
+sensorColumns = grep(pattern = "_belt|_arm|_dumbbell|_forearm", names(training))
+training = training[, c(sensorColumns,160)]
+dim(training)
+```
+After the four types of variables are selected, the next course of action is to deal with the missing values in the data frame. Unfortunately, the vast amount of missing values does not allow us to impute the data. Consequently, columns with missing values were removed as part of the data cleaning process. Next, variable selection was applied to the testing set to avoid errors.
+```{r}
+missingData = is.na(training)
+omitColumns = which(colSums(missingData) > 19000)
+training = training[, -omitColumns]
+dim(training)
+
+testing <- testing[colnames(testing) %in% colnames(training)]
+```
+
+# Exploring the Data
+With a high dimension data set, t-Distributed Stochastic Neighbor Embedding (**t-SNE**) was chosen to see and identify any patterns in the data. High dimensional visualization methods allow provide insight as to which machine learning techniques to utilize.
+```{r, cache=TRUE}
+suppressMessages(library(Rtsne))
+set.seed(323)
+rtsne_out <- Rtsne(data.matrix(training), max_iter=500)
+colors = rainbow(length(unique(training$classe)))
+names(colors) = unique(training$classe)
+plot(rtsne_out$Y, t='n', main="t-SNE Visualization")
+text(rtsne_out$Y, labels=training$classe, col=colors[training$classe])
+legend(-30,-10,unique(training$classe),text.col=colors )
+```
+
+This visualization technique preserves the high dimension structure, and projects that structure into two or three-dimensional space. The figure does not distinguish nice clusters, therefore, a cluster approach will not be applied to this data set.In addition, a decision tree would yield poor results on this data set. More on **t-SNE** can be found in this paper <http://www.jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf>.
+
+# Machine Learning
+## Random Forrest
+No preprocessing, feature engineering, parameter tuning, or dimension reduction was needed, outside of removing missing values, for Random Forrest. The caret package was utilized for it's robust train function to fit predictors to the training set. The training data was not partitioned, because repeated cross-validation will be used to train the model and estimate the out of sample error by holding out a portion of the data, and using it to estimate the error.
+```{r, cache=TRUE}
+suppressMessages(library(caret))
+suppressMessages(library(doMC))
+registerDoMC(cores=7)
+set.seed(323)
+cvCtrl <- trainControl(method = "repeatedcv", classProbs = TRUE, summaryFunction = multiClassSummary, repeats=3, allowParallel = T)
+rf_fit <- train(classe~.,method="rf",data=training, trainControl=cvCtrl, metric = "Accuracy")
+predictions <- predict(rf_fit,newdata = training)
+print(confusionMatrix(predictions,training$classe))
+```
+
+
+Repeated cross validation, 10 fold, was done to validate the model for assessing how the results of the analysis will generalize to our testing set. Three repeats were selected to reduce variability, and the miss-classification error rate was low. therefore, based on the confusion matrix, it is expected that the out of sample error rate will be less than 1%, closer to 0.
+
+## XG Boost
+In addition, no preprocessing, feature engineering, parameter tuning, or dimension reduction was needed, outside of removing missing values, for the boosting method. Again, the caret package was utilized for it's robust train function to fit predictors to the training set.
+
+```{r , cache=TRUE}
+set.seed(323)
+xg_fit <- train(classe~.,method="xgbTree",data=training, trainControl=cvCtrl, metric = "Accuracy")
+predictions <- predict(xg_fit,newdata = training)
+print(confusionMatrix(predictions,training$classe))
+```
+
+Additionally, the confusion matrix for the boosted model also suggest an  out of sample error rate less than 1%. Based on the metrics for both models, it is not necessary to combine predictors to increase the accuracy.
+
+# Investigation  and Applying the Models to the Testing Set
+Here we briefly discuss the model selection process and its performance.
+```{r, cache=TRUE}
+
+plot(rf_fit, main = "Random Forrest")
+plot(xg_fit, main="XGBoost")
+```
+
+For Random Forrest, the models performance decreased with increasing predictors. While, boosting, a max tree depth of 3 is optimal for achieving the desired performance.
+
+
+Furthermore, the function varImp can be used to characterize the general effect of the predictors on the models. These features have large contributions to the models performance:
+```{r, cache=TRUE}
+caret::varImp(xg_fit)
+caret::varImp(rf_fit)
+predictions_tree <- predict(rf_fit,newdata = testing)
+predictions_xg <- predict(xg_fit,newdata = testing)
+predictions_tree
+predictions_xg
+```
+
+# Conclusion
+Both models were tested against the testing set, and the results were submitted to validate the models out of sample predictions capability. The Kappa statistic is a metric that compares an observed accuracy with an expected accuracy by taking into account random chance. The Kappa value of 1 lets us know that both models performed perfectly on the training sets.  Because multiple cross validation was selected, the out of error rate is expected to be 0%$<x$<1% as the accuracy of the models are 100%.
+
+## Reference:
+### Qualitative Activity Recognition of Weight Lifting Exercises
+- Author: Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H.
+
+- Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13)
+
+  <http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises#ixzz3y6WoPH9r>
+ 
+
+

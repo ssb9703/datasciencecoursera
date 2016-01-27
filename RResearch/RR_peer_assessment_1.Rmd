@@ -1,0 +1,91 @@
+---
+title: 'RR: Peer assessment 1'
+output: html_document
+---
+First the we have to aquire the data:
+```{r grab data}
+download.file("http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip","project1.zip")
+unzip("project1.zip",list = T)
+unzip("project1.zip")
+activity.data <- read.csv("activity.csv")
+```
+
+
+ Next, we check the structure of the data:
+```{r}
+ str(activity.data)
+```
+Now, we transform the date date to YMD format:
+```{r}
+activity.data$date <- as.Date(activity.data$date, format= "%Y-%m- %d")
+```
+ #What is mean total number of steps taken per day?
+ Calculate the total number of steps taken per day:
+ 
+```{r}
+ per_day_total_steps <- aggregate(steps ~ date, activity.data, sum)
+ head(per_day_total_steps)
+ tail(per_day_total_steps)
+```
+Make a histogram of the total number of steps taken each day:
+```{r} 
+lattice::histogram(steps~date, per_day_total_steps, breaks = 6, main = "Histogram of Steps Taken")
+```
+
+
+```{r} 
+mean(per_day_total_steps$steps, na.rm = T)
+median(per_day_total_steps$steps, na.rm = T) 
+```
+#What is the average daily activity pattern?
+Aggregrate the steps by intervals and plot
+```{r} 
+interval_steps <- aggregate(activity.data$steps, by= list(interval= activity.data$interval), FUN= mean, na.rm= T)
+lattice::xyplot(x ~ interval, data=interval_steps, type= "l", xlab="5 Min Intervals", ylab="Number of Steps", main="Average Daily Activity Pattern")
+```
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r} 
+psych::describe(interval_steps)
+library(dplyr)
+interval_steps %>% filter(x>200.00)
+```
+
+#Imputing missing values
+Calculate and report the total number of missing values in the dataset:
+```{r} 
+sum(is.na(activity.data$steps))
+```
+Devise a strategy for filling in all of the missing values in the dataset and Create a new dataset that is equal to the original dataset but with the missing data filled in:
+```{R} 
+activity.data_filled <- gam::na.gam.replace(activity.data)
+```
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day:
+```{r} 
+lattice::histogram(steps~date, per_day_total_steps, breaks = 6, main = "Histogram of Steps Taken")
+lattice::histogram(steps~date, activity.data_filled, breaks = 6, main = "Histogram of Steps Taken With NA's Replaced")
+
+```
+We can see that the new data set is different than the one with NA's, and maybe the gam package is not the best for this:
+```{r} 
+mean(activity.data_filled$steps)
+median(activity.data_filled$steps)
+```
+#Are there differences in activity patterns between weekdays and weekends?
+
+``` {r} 
+weekday_or_end <- function(date) {
+    day <- weekdays(date)
+    if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")) 
+        return("weekday") else if (day %in% c("Saturday", "Sunday")) 
+        return("weekend") else stop("invalid date")
+}
+
+activity.data_filled$date <- as.Date(activity.data_filled$date)
+activity.data_filled$day <- sapply(activity.data_filled$date,weekday_or_end)
+```
+
+Now, let's make a panel plot containing plots of average number of steps taken on weekdays and weekends.
+``` {r} 
+avgs <- aggregate(steps ~ interval + day, data = activity.data_filled, mean)
+lattice::xyplot(steps ~ interval| as.factor(day), data=avgs, type="l", ylab ="Number of Steps")
+```
