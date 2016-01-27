@@ -46,7 +46,7 @@ testing <- testing[colnames(testing) %in% colnames(training)]
 ```
 
 # Exploring the Data
-With a high dimension data set, t-Distributed Stochastic Neighbor Embedding (**t-SNE**) was chosen to see and identify any patterns in the data. High dimensional visualization methods allow provide insight as to which machine learning techniques to utilize.
+With a high dimension data set, t-Distributed Stochastic Neighbor Embedding (**t-SNE**) was chosen to see and identify any patterns in the data. High dimensional visualization methods provide insight as to which machine learning techniques to utilize.
 ```{r, cache=TRUE}
 suppressMessages(library(Rtsne))
 set.seed(323)

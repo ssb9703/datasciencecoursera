@@ -98,7 +98,7 @@ dim(training)</code></pre>
 </div>
 <div id="exploring-the-data" class="section level1">
 <h1>Exploring the Data</h1>
-<p>With a high dimension data set, t-Distributed Stochastic Neighbor Embedding (<strong>t-SNE</strong>) was chosen to see and identify any patterns in the data. High dimensional visualization methods allow provide insight as to which machine learning techniques to utilize.</p>
+<p>With a high dimension data set, t-Distributed Stochastic Neighbor Embedding (<strong>t-SNE</strong>) was chosen to see and identify any patterns in the data. High dimensional visualization methods provide insight as to which machine learning techniques to utilize.</p>
 <pre class="r"><code>suppressMessages(library(Rtsne))
 set.seed(323)
 rtsne_out &lt;- Rtsne(data.matrix(training), max_iter=500)
