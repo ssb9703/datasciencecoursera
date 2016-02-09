@@ -1,6 +1,6 @@
 ---
 title: 'RR: Peer assessment 1'
-output: html_document
+output: pdf_document
 ---
 First the we have to aquire the data:
 ```{r grab data}
