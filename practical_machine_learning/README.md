@@ -9,7 +9,7 @@ The analysis uses two different learners, one fast ( **Random Forrest**), and on
 
 ### Conclusion
 
-###Both models were tested against the testing set, and the results were submitted to validate the models out of sample predictions capability. The Kappa statistic is a metric that compares an observed accuracy with an expected accuracy by taking into account random chance. The Kappa value of 1 lets us know that both models performed perfectly on the training sets.  Because multiple cross validation was selected, the out of error rate is expected to be 0%$<x$<1% as the accuracy of the models are 100%.
+Both models were tested against the testing set, and the results were submitted to validate the models out of sample predictions capability. The Kappa statistic is a metric that compares an observed accuracy with an expected accuracy by taking into account random chance. The Kappa value of 1 lets us know that both models performed perfectly on the training sets.  Because multiple cross validation was selected, the out of error rate is expected to be 0%$<x$<1% as the accuracy of the models are 100%.
 
 ## AIDS Antiviral Screen Data Set
 
