@@ -1,0 +1,182 @@
+---
+title: "AIDS Antiviral Screen Data"
+author: "Steven Burnett, Ph.D.   <http://www.linkedin.com/in/sburnettchemistry>"
+date: "February 3, 2016"
+output:
+  pdf_document: default
+  html_document:
+    number_sections: yes
+theme: united
+---
+
+## Summary
+The goal of this project is to use machine learning to predict the results of Development Therapeutics Program (DTP) AIDS Antiviral Screening data that is publicly available. Namely,  the DTP provides services and data to facilitate the discovery and development of new therapeutic agents. Moreover, this report  documents both the predictive power of the model and all corresponding data used for the analysis in an effort to identify effective therapeutic agents for treating patients with AIDS and/or cancer. 
+
+The NIH website hosting the data is located at <https://wiki.nci.nih.gov/display/NCIDTPdata/AIDS+Antiviral+Screen+Data>, and the May 2004 data can be found at <https://wiki.nci.nih.gov/pages/viewpageattachments.action?pageId=158204006&metadataLink=true>.  The target classes for prediction are: 
+
+* CA - Confirmed active
+* CM - Confirmed moderately active
+* CI - Confirmed inactive
+
+Using a rule-based algorithm (C5.0) and cross-validation, the statistics of the model chosen has an accuracy of 96.23% (95% CI of .9589- .9656), and a Kappa value of .7645.  Lastly, the analysis uncovered that high EC50 concentrations can be used to indicate a drug's potency and classification.
+
+## Gathering and Cleaning the Data
+### The data: 
+Because the results of the screening (classes) were provided separately from the rest of the predictors. The data was joined by the variable NSC (the NCI's internal ID number) to create a new data frame for the analysis.
+```{r}
+#Screening Results
+#download.file("https://wiki.nci.nih.gov/download/attachments/158204006/aids_conc_may04.txt?version=1&modificationDate=1378736563000&api=v2", "aids_conc_may04.txt")
+
+# concentrations necessary to see a protective effect on the infected cells
+#download.file("https://wiki.nci.nih.gov/download/attachments/158204006/aids_ec50_may04.txt?version=1&modificationDate=1378736563000&api=v2", "aids_ec50_protective_may04.txt")
+
+#concentrations necessary to inhibit the growth of uninfected cells
+#download.file("https://wiki.nci.nih.gov/download/attachments/158204006/aids_ic50_may04.txt?api=v2","aids_ic50_inhibit_may04.txt")
+
+aids_classes <- read.csv("aids_conc_may04.txt", stringsAsFactors = F,strip.white = T)
+aids_inhiit <- read.csv("aids_ic50_inhibit_may04.txt", stringsAsFactors = F)
+aids_protective <- read.csv("aids_ec50_protective_may04.txt", stringsAsFactors = F)
+aids_df <- Reduce(function(...) merge(..., by="NSC"), list(aids_classes, aids_inhiit, aids_protective))
+```
+
+From the information on NIH's website, some of the features will need to be coded as factors:
+
+1. ConcUnit
+    + M = molar
+    + u = micrograms per ml
+    + V = Volumetric
+2. Flag
+    + \> indicates EC50 would be higher than the highest concentration tested in at least one of the experiments
+    + < indicates EC50 would be less than the lowest concentration tested in at least one of the experiments
+    + = indicated that all the experiments reached EC50
+
+```{r}
+aids_df$Conclusion<- as.factor(aids_df$Conclusion); 
+aids_df$Flag.x <- as.factor(aids_df$Flag.x);aids_df$Flag.y <- as.factor(aids_df$Flag.y);
+rm(aids_classes,aids_inhiit,aids_protective);
+aids_df$ConcUnit.x <- as.factor(aids_df$ConcUnit.x);
+aids_df$ConcUnit.y <- as.factor(aids_df$ConcUnit.y)
+head(aids_df);summary(aids_df)
+
+```
+
+Because of the similarities of the screenings, a check was done to identify if the log variables were highly correlated, or possibly identical.
+```{r, out.width="1400px", cache=T}
+data.frame(tail(aids_df$Log10HiConc.x,20),tail(aids_df$Log10HiConc.y,20))#can drop one
+data.frame(tail(aids_df$Log10IC50,20),tail(aids_df$Log10EC50,20))# must keep both
+panel.hist <- function(x, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
+}
+
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- abs(cor(x, y))
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste0(prefix, txt)
+  if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+
+pairs(aids_df[-1], panel = panel.smooth,
+      cex = 1.5, pch = 24, bg = "light blue",
+      diag.panel = panel.hist, upper.panel = panel.cor,cex.labels = 1, font.labels = 2)
+
+```
+
+It is apparent that the log10 High Concentrations for X and Y are identical, and only one will be kept. However, log IC50 and EC50 are different and both must be kept.
+
+A plot of the relationships between all of the variables was made, having the correlations in the upper triangle, scatter plots in the lower triangle, and variable names and distributions on the main diagonal.
+Based on the summary, and visually inspecting HiConc, IC50 and EC50 variables, only the HiConc.y variable can be removed. Additionally, the variables  NSC, stddev, numexp  will also get removed as they are unnecessary for the prediction.
+
+
+Next, the variables StdDev.x, StdDev.y, NumExp.x, NumExp.y, NSC, and Log10HiConc.y were selected, removed, and a new relationship plot was made. 
+```{r, cache=T, out.width="1400px"}
+suppressMessages(library(dplyr))
+aids_df<- aids_df %>% select(c(-StdDev.x,-StdDev.y,-NumExp.x,-NumExp.y,-NSC,-Log10HiConc.y))
+panel.hist <- function(x, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(usr[1:2], 0, 1.5) )
+  h <- hist(x, plot = FALSE)
+  breaks <- h$breaks; nB <- length(breaks)
+  y <- h$counts; y <- y/max(y)
+  rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
+}
+
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- abs(cor(x, y))
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste0(prefix, txt)
+  if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+
+pairs(aids_df, panel = panel.smooth,
+      cex = 1.5, pch = 24, bg = "light blue",
+      diag.panel = panel.hist, upper.panel = panel.cor,cex.labels = 1, font.labels = 2)
+
+```
+
+The plot shows that the concentrations units are correlated, but that is to be expected and does not represent a real issue.
+
+## Model Selection and Tunning
+
+Because the conclusion data was determined by inspection of individual dose response curves by  subject matter experts (SME) in this field, the results correspond to their overall judgment. Furthermore, the EC50 and IC50 data are computer generated averages and don't necessarily capture everything that was considered when making the judgment. Therefore, a rule-based system was chosen to aid the SMEs for predicting future classes, based on the nature of the Flag variable and what it represents. 
+
+The C5.0 rule-set was selected because of its scalability and it's known performance with generating rules that are easy to  interpret. <http://perun.pmf.uns.ac.rs/radovanovic/dmsem/cd/install/Weka/doc/classifiers-papers/trees/ADTree/atrees.pdf>
+```{r}
+suppressMessages(library(caret))
+suppressMessages(library(doMC))
+registerDoMC(cores=7)
+set.seed(323)
+M.intrain<- createDataPartition(aids_df$Conclusion,p=.70,list = F)
+M.training <- aids_df[M.intrain,]
+M.testing <- aids_df[-M.intrain,]
+cvCtrl <- trainControl(method = "repeatedcv", number = 10, repeats=3, allowParallel = T)
+
+```
+
+The data are split 70-30 to create the training and testing sets, respectively. In addition, 10 fold cross-validation was selected with repeats to train the model on the training data, thus reducing the out of sample error.
+
+```{r, cache=T}
+fit_M.c5 <- train(Conclusion~., method="C5.0Rules", data = M.training, trControl= cvCtrl, metric= "Accuracy")
+
+```
+
+### Training Data
+Classification analysis from the training data was utilized to identify the important features, and predict with high accuracy the classification of the screening results. The tuning parameters were selected automatically based on repeated cross-validation to evaluate the models accuracy.
+```{r}
+getTrainPerf(fit_M.c5)
+plot(varImp(fit_M.c5,scale = F))
+predictions.c5<- predict(fit_M.c5,M.training)
+print(confusionMatrix(predictions.c5,M.training$Conclusion))
+```
+
+Based on the plot, the top 5 variables of importance are Log10EC50, Flag.EC50= >, ConcUnit.EC50= u, Log10HiConc.IC50, and Log10IC50. The plot also suggests that when the  EC50 concentration is highest than the highest concentration tested, it will have a substantial impact on the classification on the antiviral screening. Moreover, the cross-validated model has an **accuracy of 0.9653 (96.53%)** and a **kappa value of .7821**. 
+
+
+### Testing Data
+The final model was built from the training set as selected by a majority voting scheme to evaluate its accuracy. Next, that final model was then assessed using a testing set to determine its true accuracy.
+```{r}
+predictions.c5<- predict(fit_M.c5,M.testing[-1])# removing the class column
+print(confusionMatrix(predictions.c5,M.testing$Conclusion))
+```
+
+The model was applied to the testing set, and the prediction accuracy deviates only slightly from the training set with an **accuracy of 0.9623 (96.23%)** and a **kappa value of .7645**
+
+## Concluding Remarks
+The analysis from this report presented an accurate model with the aim of giving the SMEs in this field a better method for identifying the active class other than from their collective agreement.
+

@@ -1,10 +1,8 @@
 ---
-title: "Prediction Assignment Write up for Practical Machine
-Learning"
+title: "Prediction Assignment Write up for Practical Machine Learning"
 author: "Steven's write up for the Johns Hopkins Coursera Data Science specialization"
 date: "January 23, 2016"
 output: html_document
-
 theme: united
 ---
 
@@ -13,7 +11,7 @@ theme: united
 # Summary
 The goal of this project is to use machine learning to predict the qualitative activity recognition of weight lifting exercises (the classes) from research activity recognition data hosted at <http://groupware.les.inf.puc-rio.br/har>. Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. The data was collected from six participants, where class A represents the correct execution of the exercise, and the remaining five classes (B-E) are considered to have mistakes in the execution of the exercise.  
 
-The analysis uses two different learners, one fast ( **Random Forrest**), and one slow (**Extream Graident Boosting** ) with the intent to combine predictors if they both do not perform optimally.
+The analysis uses two different learners, one fast ( **Random Forrest**), and one slow (**Extream Gradient Boosting** ) with the intent to combine predictors if they both do not perform optimally.
 
 # Getting and Cleaning the Data
 The training data for this project are available here: <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
@@ -58,7 +56,7 @@ text(rtsne_out$Y, labels=training$classe, col=colors[training$classe])
 legend(-30,-10,unique(training$classe),text.col=colors )
 ```
 
-This visualization technique preserves the high dimension structure, and projects that structure into two or three-dimensional space. The figure does not distinguish nice clusters, therefore, a cluster approach will not be applied to this data set.In addition, a decision tree would yield poor results on this data set. More on **t-SNE** can be found in this paper <http://www.jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf>.
+This visualization technique preserves the high dimension structure and projects that structure into two or three-dimensional space. The figure does not distinguish nice clusters, therefore, a cluster approach will not be applied to this data set.In addition, a decision tree would yield poor results on this data set. More on **t-SNE** can be found in this paper <http://www.jmlr.org/papers/volume9/vandermaaten08a/vandermaaten08a.pdf>.
 
 # Machine Learning
 ## Random Forrest
@@ -75,7 +73,7 @@ print(confusionMatrix(predictions,training$classe))
 ```
 
 
-Repeated cross validation, 10 fold, was done to validate the model for assessing how the results of the analysis will generalize to our testing set. Three repeats were selected to reduce variability, and the miss-classification error rate was low. therefore, based on the confusion matrix, it is expected that the out of sample error rate will be less than 1%, closer to 0.
+Repeated cross-validation, 10 fold, was done to validate the model for assessing how the results of the analysis will generalize to our testing set. Three repeats were selected to reduce variability, and the miss-classification error rate was low. therefore, based on the confusion matrix, it is expected that the out of sample error rate will be less than 1%, closer to 0.
 
 ## XG Boost
 In addition, no preprocessing, feature engineering, parameter tuning, or dimension reduction was needed, outside of removing missing values, for the boosting method. Again, the caret package was utilized for it's robust train function to fit predictors to the training set.
@@ -87,7 +85,7 @@ predictions <- predict(xg_fit,newdata = training)
 print(confusionMatrix(predictions,training$classe))
 ```
 
-Additionally, the confusion matrix for the boosted model also suggest an  out of sample error rate less than 1%. Based on the metrics for both models, it is not necessary to combine predictors to increase the accuracy.
+Additionally, the confusion matrix for the boosted model also suggests an  out of sample error rate less than 1%. Based on the metrics for both models, it is not necessary to combine predictors to increase the accuracy.
 
 # Investigation  and Applying the Models to the Testing Set
 Here we briefly discuss the model selection process and its performance.
@@ -97,7 +95,7 @@ plot(rf_fit, main = "Random Forrest")
 plot(xg_fit, main="XGBoost")
 ```
 
-For Random Forrest, the models performance decreased with increasing predictors. While, boosting, a max tree depth of 3 is optimal for achieving the desired performance.
+For Random Forrest, the models performance decreased with increasing predictors. While boosting, a max tree depth of 3 is optimal for achieving the desired performance.
 
 
 Furthermore, the function varImp can be used to characterize the general effect of the predictors on the models. These features have large contributions to the models performance:
@@ -111,7 +109,7 @@ predictions_xg
 ```
 
 # Conclusion
-Both models were tested against the testing set, and the results were submitted to validate the models out of sample predictions capability. The Kappa statistic is a metric that compares an observed accuracy with an expected accuracy by taking into account random chance. The Kappa value of 1 lets us know that both models performed perfectly on the training sets.  Because multiple cross validation was selected, the out of error rate is expected to be 0%$<x$<1% as the accuracy of the models are 100%.
+Both models were tested against the testing set, and the results were submitted to validate the models out of sample predictions capability. The Kappa statistic is a metric that compares an observed accuracy with an expected accuracy by taking into account random chance. The Kappa value of 1 lets us know that both models performed perfectly on the training sets.  Because multiple cross-validation was selected, the out of error rate is expected to be 0%$<x$<1% as the accuracy of the models are 100%.
 
 ## Reference:
 ### Qualitative Activity Recognition of Weight Lifting Exercises
