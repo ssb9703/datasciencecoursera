@@ -1,0 +1,84 @@
+Coursera Final Project Report - Developing Data Products Course
+========================================================
+author: Steven Burnett
+date: 
+
+Introduction
+========================================================
+
+We were tasked with exploring the relationship between a set of variables and MPG. The two questions that were of interest are:1. Is an automatic or manual transmission better for MPG?
+2. Quantify the MPG difference between automatic and manual transmissions?
+Our results indicate that if a linear model is required, then the best model will have the outcome MPG governed by weight (wt), cycle (cylc), horsepower (hp) and transmission (am).
+Our findings show the average MPG:Automatic = 17.15 & Manual = 24.39, and Manual cars get 1.81 miles better per gal.
+
+Loading Data and Exploratory Data Analyses
+========================================================
+
+```{r,echo=FALSE}
+data("mtcars")
+mtcars$cyl  <- factor(mtcars$cyl)
+mtcars$vs   <- factor(mtcars$vs)
+mtcars$gear <- factor(mtcars$gear)
+mtcars$carb <- factor(mtcars$carb)
+mtcars$am   <- factor(mtcars$am,labels=c("Automatic","Manual"))
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+  usr <- par("usr"); on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- abs(cor(x, y))
+  txt <- format(c(r, 0.123456789), digits = digits)[1]
+  txt <- paste0(prefix, txt)
+  if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+```
+
+We explore the relationship between all of the variables with smoothing in the lower panel and correlations on the upper panels with size proportional to the correlations.
+We notice that MPG is highly correlated with weight (wt), and then cycle (cyl) and displacement (disp).However, MPG is slightly correlated with transmission(am)
+
+```{r, echo=FALSE}
+pairs(mtcars,lower.panel = panel.smooth,upper.panel = panel.cor)
+
+```
+
+
+
+Testing Models
+========================================================
+
+```{r, echo=FALSE}
+fit  <- lm(hp~am,data = mtcars)
+fit2 <- update(fit,lm(hp~am+wt,data = mtcars))
+fit3 <- update(fit,lm(hp~am+wt+mpg+drat,data = mtcars))
+fit4 <- update(fit,lm(hp~am+wt+mpg+drat+qsec+vs,data = mtcars))
+fit5 <- update(fit,lm(hp~am+wt+mpg+drat+qsec+vs+gear+carb,data = mtcars))
+fit6 <- update(fit,lm(hp~am+wt+mpg+drat+qsec+vs+gear+carb+cyl,data = mtcars))
+fit7 <- update(fit,lm(hp~am+wt+mpg+drat+qsec+vs+gear+carb+cyl + disp,data = mtcars))
+anova(fit,fit2,fit3,fit4,fit5,fit6,fit7)
+```
+
+It looks like model 7 is the worse for modeling horse power. Next, we will try the AIC algorithm
+
+AIC Algorithm
+========================================================
+```{r}
+step_summary <-summary(step(lm(hp ~ ., data=mtcars), direction = "both"))
+```
+```{r}
+step_summary$coefficients
+step_summary$adj.r.squared
+best_fit <- lm(hp~mpg + cyl + disp + wt + vs + gear + carb,data = mtcars)
+```
+Using the AIC method, it appears that  mpg, cyl, disp, wt, vs, gear, and carb are good predictors for hp.
+```{r}
+
+par(mfrow=c(2,2))
+plot(best_fit,main = "AIC")
+
+```
+
+While examining the plots, it looks like we have a good regression model obtain from the AIC method. (Residuals vs Fitted) The residuals are scattered with no observable trend. The smooth curve is relatively flat, and is good enough to suggest a linear fit is optimal. 
+
+
+
+
